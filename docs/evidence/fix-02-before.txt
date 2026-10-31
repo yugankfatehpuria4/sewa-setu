@@ -1,0 +1,8 @@
+xxx.xx                                                                   [100%]
+=========================== short test summary info ============================
+XFAIL tests/test_fix02_upload.py::test_jpg_photo_of_document_accepted - F-02
+XFAIL tests/test_fix02_upload.py::test_pdf_up_to_5mb_accepted - F-02
+XFAIL tests/test_fix02_upload.py::test_rejection_message_is_plain_language - F-02
+XFAIL tests/test_fix02_upload.py::test_disguised_file_rejected - F-02
+XFAIL tests/test_fix02_upload.py::test_path_traversal_filename_neutralised - F-02
+1 passed, 5 xfailed in 0.60s
