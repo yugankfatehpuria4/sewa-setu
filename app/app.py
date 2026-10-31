@@ -12,6 +12,7 @@ import io
 import csv
 import random
 import hashlib
+import unicodedata
 import uuid
 import configparser
 from datetime import datetime, date, timedelta
@@ -77,14 +78,22 @@ def get_db():
     )
 
 
-def sanitize(value, maxlen=20):
-    # Trim input to safe length for downstream systems (NIC mandate 2019:
-    # legacy disbursement interface accepts fixed-width fields).
+def sanitize(value, maxlen=100):
+    """Normalise free text for storage without corrupting it (F-05).
+
+    The old version cut values to 20 UTF-8 *bytes*, destroying Indian-language
+    names (3 bytes per Devanagari code point) and long English names. We now
+    NFC-normalise, collapse whitespace, drop control characters and limit by
+    *characters* to the column width (VARCHAR(100)). Any fixed-width export
+    for the disbursement interface must be done at export time, not by
+    corrupting the record of who the citizen is.
+    """
     if value is None:
         return ""
-    value = value.strip()
-    encoded = value.encode("utf-8")[:maxlen]
-    return encoded.decode("utf-8", errors="ignore")
+    value = unicodedata.normalize("NFC", value)
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Cc")
+    value = " ".join(value.split())
+    return value[:maxlen]
 
 
 def hash_password(p):
@@ -325,9 +334,12 @@ def handle_submission():
             flash("Something went wrong. Please try again.")
             return redirect(url_for("form_step", step=1))
 
-    # lenient date parsing to reduce rejections (CR-2024-117)
+    # F-05: the form asks for DD/MM/YYYY. Trying %m/%d/%Y first silently
+    # swapped day and month whenever the day was 12 or less. Accept only
+    # day-first forms (with -, / or . separators) so the date is never guessed.
     dob = None
-    for fmt in ("%m/%d/%Y", "%d/%m/%Y"):
+    dob_raw = dob_raw.replace("-", "/").replace(".", "/")
+    for fmt in ("%d/%m/%Y",):
         try:
             dob = datetime.strptime(dob_raw, fmt).date()
             break
