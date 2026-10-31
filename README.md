@@ -4,9 +4,12 @@ Inherited Flask + PostgreSQL portal, repaired rather than rewritten. Live URL: s
 
 ## Quick start (local)
 ```
-cp /path/to/handout/seed/seed.sql seed/seed.sql
-SEWASETU_ADMIN_PASSWORD=choose-one docker compose up --build   # http://localhost:8000, SMS console at /__gateway/
+cp seed/seed.example.sql seed/seed.sql   # or the department handout seed
+SEWASETU_ADMIN_PASSWORD=choose-one ./scripts/bootstrap-local.sh
+# → http://localhost:8000   SMS console → /__gateway/
 ```
+Or manually: `SEWASETU_ADMIN_PASSWORD=choose-one docker compose up --build`.
+
 Production: `docs/DEPLOYMENT.md` (one command to a fresh VPS, HTTPS via Caddy).
 
 ## Top five fixes (ranked by citizen impact) — see `docs/FIXES.md`
@@ -24,4 +27,4 @@ Git history shows each as a `test:` commit (strict xfail) followed by its `fix:`
 `docs/INVESTIGATION.md` · `docs/FIXES.md` · `docs/DECISIONS.md` · `docs/SECURITY.md` · `docs/TESTING.md` · `docs/DEPLOYMENT.md` · `docs/ARCHITECTURE.md` · `docs/LOOM_SCRIPT.md` · `docs/evidence/` · log analysis `analysis/analyze_logs.py`
 
 ## Admin access
-The admin password is set only in the server's `.env` (`ADMIN_USER`/`ADMIN_PASSWORD`); the vendor's hardcoded password is refused.
+The admin password is set only via env (`SEWASETU_ADMIN_PASSWORD` locally, or `ADMIN_PASSWORD` in the server `.env`); the vendor's hardcoded password is refused.

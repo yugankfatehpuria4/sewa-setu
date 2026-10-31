@@ -8,6 +8,9 @@ Installs Docker, opens only 22/80/443 (UFW), copies the code and seed, writes a 
 with random secrets (prints the admin password once), and starts the stack. HTTPS via Caddy on
 `<ip>.sslip.io` unless `DOMAIN` is set. The seed loads once, on first start of an empty volume.
 
+For a dry-run without the department handout, use the synthetic demo seed:
+`SEED=./seed/seed.example.sql`.
+
 ## Services (`docker-compose.prod.yml`)
 `db` (Postgres 15, IST, healthcheck) · `app` (gunicorn gthread 4×4, `/healthz` healthcheck) · `scheduler` (cron 02:00 IST, deemed approval) · `smsgw` (internal only; reached through the app at `/__gateway/`) · `caddy` (80/443, auto TLS) · `backup` (daily `pg_dump -Fc`, 14-day retention). All `restart: unless-stopped`, logs rotated.
 

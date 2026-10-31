@@ -1,31 +1,54 @@
+# Local development stack. Production: docker-compose.prod.yml + docs/DEPLOYMENT.md
 services:
   db:
     image: postgres:15
+    ports:
+      - "5432:5432"   # host access for pytest
     environment:
       POSTGRES_DB: sewasetu
       POSTGRES_USER: sewasetu
       POSTGRES_PASSWORD: sewasetu123
+      TZ: Asia/Kolkata
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./app/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./seed/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ./app/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./migrations/001_indexes.up.sql:/docker-entrypoint-initdb.d/02-indexes.sql:ro
+      - ./seed/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sewasetu -d sewasetu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   app:
     build: ./app
     ports:
       - "8000:8000"
+    environment: &appenv
+      TZ: Asia/Kolkata
+      SEWASETU_ADMIN_USER: ${SEWASETU_ADMIN_USER:-assessor}
+      # Prefer shell export, else values from local .env (see .env.example / bootstrap).
+      SEWASETU_ADMIN_PASSWORD: ${SEWASETU_ADMIN_PASSWORD:?Set SEWASETU_ADMIN_PASSWORD (shell or .env)}
+      # Local demo: keep the window open even if the statutory default has passed.
+      SEWASETU_PENSION_SCHEME_DEADLINE: ${SEWASETU_PENSION_SCHEME_DEADLINE:-2099-12-31 23:59}
     depends_on:
-      - db
-      - smsgw
+      db: { condition: service_healthy }
+      smsgw: { condition: service_started }
     volumes:
       - uploads:/var/sewasetu/uploads
       - applogs:/var/log/sewasetu
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz',timeout=5).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   scheduler:
     build: ./app
-    command: ["cron", "-f"]
+    command: ["sh", "-c", "printenv | grep -E '^(SEWASETU_|TZ=)' > /etc/environment && cron -f"]
+    environment: *appenv
     depends_on:
-      - db
+      db: { condition: service_healthy }
     volumes:
       - applogs:/var/log/sewasetu
 

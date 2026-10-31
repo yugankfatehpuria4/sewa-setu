@@ -1,4 +1,5 @@
 seed/*.sql
+!seed/seed.example.sql
 logs/
 *.tar.gz
 *.mp3
