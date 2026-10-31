@@ -12,6 +12,7 @@ import io
 import csv
 import random
 import hashlib
+import uuid
 import configparser
 from datetime import datetime, date, timedelta
 
@@ -217,6 +218,24 @@ def form_step(step):
                            data=session.get("form_data", {}), blocks=BLOCKS)
 
 
+# F-02: the page has always promised "JPG or PDF, maximum 5 MB", but the code
+# accepted only .pdf under 100 KB and replied "ERR_VAL_47". Phone photos of an
+# age-proof document are JPGs of 1-4 MB, so most citizens were stopped here.
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+ALLOWED_UPLOADS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",),
+                   ".jpeg": (b"\xff\xd8\xff",)}
+UPLOAD_HELP = ("Please upload a JPG photo or a PDF of your age proof document, "
+               "no larger than 5 MB. You can take a clear photo of the document "
+               "with a mobile phone.")
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES + 64 * 1024
+
+
+@app.errorhandler(413)
+def upload_too_large(e):
+    flash("This file is larger than 5 MB. " + UPLOAD_HELP)
+    return render_template("upload.html"), 413
+
+
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
     if not session.get("verified_mobile"):
@@ -225,18 +244,23 @@ def upload():
     if request.method == "POST":
         f = request.files.get("document")
         if f is None or f.filename == "":
-            flash("ERR_VAL_47")
-            return render_template("upload.html")
-        filename = f.filename.lower()
+            flash("No file was chosen. " + UPLOAD_HELP)
+            return render_template("upload.html"), 400
+        ext = os.path.splitext(f.filename.lower())[1]
         content = f.read()
-        if not filename.endswith(".pdf"):
-            flash("ERR_VAL_47")
-            return render_template("upload.html")
-        if len(content) > 102400:
-            flash("ERR_VAL_47")
-            return render_template("upload.html")
+        if ext not in ALLOWED_UPLOADS:
+            flash("This type of file cannot be accepted. " + UPLOAD_HELP)
+            return render_template("upload.html"), 400
+        if len(content) > MAX_UPLOAD_BYTES:
+            flash("This file is larger than 5 MB. " + UPLOAD_HELP)
+            return render_template("upload.html"), 400
+        if not content.startswith(ALLOWED_UPLOADS[ext]):
+            flash("This file does not look like a real JPG or PDF. " + UPLOAD_HELP)
+            return render_template("upload.html"), 400
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        path = os.path.join(UPLOAD_DIR, "%s_%s" % (session["verified_mobile"], filename))
+        # Server-chosen name: never trust the client filename (path traversal).
+        safe_name = "%s_%s%s" % (session["verified_mobile"], uuid.uuid4().hex, ext)
+        path = os.path.join(UPLOAD_DIR, safe_name)
         with open(path, "wb") as out:
             out.write(content)
         session["doc_path"] = path
