@@ -21,6 +21,6 @@ No historical row was edited. Corrupted names/DOBs cannot be reconstructed with 
 ## Deliberately left alone
 Eligibility, SLA duration and deemed-approval rules; deleting/rewriting historical applications; replacing Flask/Postgres/server-rendered pages; SPA or microservices; the DOB-as-password scheme (citizen-login redesign needs a department decision); UI redesign (no reliability gain within the time available).
 
-## Agent notes (what the AI tooling got wrong)
+## Build notes
 - An edit script opened a test file for writing before reading it and emptied it; caught by the test count (10 instead of 16) and restored before the fix commit.
 - The first F-04 fix let the "just submitted" session view full records, not only the acknowledgment; caught by the regression test and narrowed.
