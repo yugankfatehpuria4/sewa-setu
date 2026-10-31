@@ -1,0 +1,102 @@
+# Production stack. Usage: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=200", "-c", "timezone=Asia/Kolkata"]
+    environment:
+      POSTGRES_DB: sewasetu
+      POSTGRES_USER: sewasetu
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Kolkata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./app/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./seed/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sewasetu -d sewasetu"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  app:
+    build: ./app
+    restart: unless-stopped
+    environment: &appenv
+      TZ: Asia/Kolkata
+      SEWASETU_DATABASE_PASSWORD: ${DB_PASSWORD}
+      SEWASETU_APP_SECRET_KEY: ${SECRET_KEY}
+      SEWASETU_ADMIN_USER: ${ADMIN_USER}
+      SEWASETU_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SEWASETU_COOKIE_SECURE: "1"
+      SEWASETU_PENSION_SCHEME_DEADLINE: ${SCHEME_DEADLINE:-2026-10-31 23:59}
+    depends_on:
+      db: { condition: service_healthy }
+      smsgw: { condition: service_started }
+    expose: ["8000"]
+    volumes:
+      - uploads:/var/sewasetu/uploads
+      - applogs:/var/log/sewasetu
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz',timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging
+
+  scheduler:
+    build: ./app
+    restart: unless-stopped
+    # cron does not inherit container env; export it for the job, then run cron.
+    command: ["sh", "-c", "printenv | grep -E '^(SEWASETU_|TZ=)' > /etc/environment && cron -f"]
+    environment: *appenv
+    depends_on:
+      db: { condition: service_healthy }
+    volumes:
+      - applogs:/var/log/sewasetu
+    logging: *logging
+
+  smsgw:
+    build: ./smsgw
+    restart: unless-stopped
+    expose: ["8025"]   # internal only; users reach it via the app at /__gateway/
+    logging: *logging
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+    logging: *logging
+
+  backup:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Kolkata
+    volumes:
+      - backups:/backups
+    entrypoint: ["sh", "-c", "while true; do pg_dump -Fc -h db -U sewasetu sewasetu > /backups/sewasetu-$$(date +%Y%m%d-%H%M).dump && find /backups -name '*.dump' -mtime +14 -delete; sleep 86400; done"]
+    depends_on:
+      db: { condition: service_healthy }
+    logging: *logging
+
+volumes:
+  pgdata:
+  uploads:
+  applogs:
+  backups:
+  caddy_data:
+  caddy_config:
