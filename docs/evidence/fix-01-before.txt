@@ -1,0 +1,6 @@
+xxx                                                                      [100%]
+=========================== short test summary info ============================
+XFAIL tests/test_fix01_submission.py::test_submission_succeeds_even_if_ack_pdf_fails - F-01
+XFAIL tests/test_fix01_submission.py::test_ack_pdf_border_is_cheap - F-01
+XFAIL tests/test_fix01_submission.py::test_retry_after_failed_submission_shows_existing_application - F-01
+3 xfailed in 0.38s
