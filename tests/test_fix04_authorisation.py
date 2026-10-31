@@ -21,7 +21,6 @@ def _citizen_login(client, mobile):
     return client.post("/status", data={"mobile": mobile, "password": "15081950"})
 
 
-@pytest.mark.xfail(strict=True, reason="F-04")
 def test_citizen_cannot_view_another_citizens_application(client):
     a, b = _two_citizens(client)
     _citizen_login(client, "9500000001")
@@ -31,14 +30,12 @@ def test_citizen_cannot_view_another_citizens_application(client):
     assert b"9500000002" not in r.data
 
 
-@pytest.mark.xfail(strict=True, reason="F-04")
 def test_ack_pdf_not_public(client):
     a, b = _two_citizens(client)
     with appmod.app.test_client() as stranger:
         assert stranger.get("/ack/%d.pdf" % b).status_code in (302, 403, 404)
 
 
-@pytest.mark.xfail(strict=True, reason="F-04")
 def test_citizen_cannot_approve_own_application(client):
     a, _ = _two_citizens(client)
     _citizen_login(client, "9500000001")
@@ -47,7 +44,6 @@ def test_citizen_cannot_approve_own_application(client):
     assert db_one("SELECT status FROM applications WHERE id=%s", (a,))[0] == "PENDING"
 
 
-@pytest.mark.xfail(strict=True, reason="F-04")
 def test_citizen_cannot_reject_others(client):
     _, b = _two_citizens(client)
     _citizen_login(client, "9500000001")

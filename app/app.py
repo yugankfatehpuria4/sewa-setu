@@ -99,6 +99,27 @@ def send_sms(mobile, text):
         app.logger.error("sms gateway error: %s" % e)
 
 
+def citizen_may_view(app_id, for_ack=False):
+    """F-04: a citizen may see only applications filed from their own
+    verified mobile; staff may see all. The submitter may also fetch the
+    acknowledgment of the application they just filed in this session."""
+    if session.get("admin"):
+        return True
+    if for_ack and app_id in session.get("ack_ids", []):
+        return True
+    mobile = session.get("portal_mobile")
+    if not mobile:
+        return False
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM applications WHERE id = %s AND mobile = %s",
+                    (app_id, mobile))
+        return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
 def deadline_remaining():
     delta = SCHEME_DEADLINE - datetime.now()
     if delta.total_seconds() <= 0:
@@ -338,6 +359,7 @@ def handle_submission():
         # retry and must be shown their application, not a dead end.
         flash("An application is already registered for this mobile number "
               "(Application No. %s). You do not need to apply again." % existing[1])
+        session["ack_ids"] = (session.get("ack_ids", []) + [existing[0]])[-5:]
         return render_template("confirmation.html", app_no=existing[1],
                                app_id=existing[0], already=True)
 
@@ -385,6 +407,7 @@ def handle_submission():
     session.pop("form_data", None)
     session.pop("doc_path", None)
     session.pop("verified_mobile", None)
+    session["ack_ids"] = (session.get("ack_ids", []) + [new_id])[-5:]
     send_sms(mobile, "Sewa Setu: application %s received. Track at the status portal "
                      "with mobile no. and password (DOB as DDMMYYYY)." % app_no)
     return render_template("confirmation.html", app_no=app_no, app_id=new_id)
@@ -459,6 +482,8 @@ def view_application(app_id):
     if not session.get("logged_in"):
         flash("Please login to view application status.")
         return redirect(url_for("status_login"))
+    if not citizen_may_view(app_id):
+        abort(404)
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT application_no, applicant_name, mobile, dob, village, block, "
@@ -473,6 +498,8 @@ def view_application(app_id):
 
 @app.route("/ack/<int:app_id>.pdf")
 def ack_pdf(app_id):
+    if not citizen_may_view(app_id, for_ack=True):
+        abort(404)
     path = os.path.join(UPLOAD_DIR, "ack", "%d.pdf" % app_id)
     if not os.path.exists(path):
         conn = get_db()
@@ -583,7 +610,8 @@ def admin_view(app_id):
 
 @app.route("/admin/approve/<int:app_id>", methods=["POST"])
 def admin_approve(app_id):
-    if not session.get("logged_in"):
+    # F-04: was session["logged_in"], which the citizen status login also sets.
+    if not session.get("admin"):
         abort(403)
     conn = get_db()
     cur = conn.cursor()
@@ -597,7 +625,8 @@ def admin_approve(app_id):
 
 @app.route("/admin/reject/<int:app_id>", methods=["POST"])
 def admin_reject(app_id):
-    if not session.get("logged_in"):
+    # F-04: was session["logged_in"], which the citizen status login also sets.
+    if not session.get("admin"):
         abort(403)
     conn = get_db()
     cur = conn.cursor()
