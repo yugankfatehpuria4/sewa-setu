@@ -1,0 +1,60 @@
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:751: 41 warnings
+  /home/claude/venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:751: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    parts = parts or [ast.Str("")]
+
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:748: 122 warnings
+  /home/claude/venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:748: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    _convert(elem) if is_dynamic else ast.Str(s=elem)
+
+../../../usr/local/lib/python3.13/ast.py:602: 122 warnings
+  /usr/local/lib/python3.13/ast.py:602: DeprecationWarning: Constant.__init__ got an unexpected keyword argument 's'. Support for arbitrary keyword arguments is deprecated and will be removed in Python 3.15.
+    return Constant(*args, **kwargs)
+
+../../../usr/local/lib/python3.13/ast.py:602: 122 warnings
+  /usr/local/lib/python3.13/ast.py:602: DeprecationWarning: Attribute s is deprecated and will be removed in Python 3.14; use value instead
+    return Constant(*args, **kwargs)
+
+../../../usr/local/lib/python3.13/ast.py:602: 122 warnings
+  /usr/local/lib/python3.13/ast.py:602: DeprecationWarning: Constant.__init__ missing 1 required positional argument: 'value'. This will become an error in Python 3.15.
+    return Constant(*args, **kwargs)
+
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:755: 180 warnings
+  /home/claude/venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:755: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    if isinstance(p, ast.Str) and isinstance(ret[-1], ast.Str):
+
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:756: 160 warnings
+  /home/claude/venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:756: DeprecationWarning: Attribute s is deprecated and will be removed in Python 3.14; use value instead
+    ret[-1] = ast.Str(ret[-1].s + p.s)
+
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:756: 80 warnings
+  /home/claude/venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:756: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    ret[-1] = ast.Str(ret[-1].s + p.s)
+
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:792
+../venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:792
+  /home/claude/venv/lib/python3.13/site-packages/werkzeug/routing/rules.py:792: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    func_ast.args.defaults.append(ast.Str(""))
+
+tests/test_baseline.py::test_full_citizen_journey_english_name
+tests/test_baseline.py::test_duplicate_application_blocked
+  /home/claude/sewa-setu/app/app.py:360: DeprecationWarning: The parameter "ln" is deprecated. Instead of ln=1 use new_x=XPos.LMARGIN, new_y=YPos.NEXT.
+    pdf.cell(0, 10, "GOVERNMENT OF PURVANCHAL", ln=1, align="C")
+
+tests/test_baseline.py::test_full_citizen_journey_english_name
+tests/test_baseline.py::test_duplicate_application_blocked
+  /home/claude/sewa-setu/app/app.py:362: DeprecationWarning: The parameter "ln" is deprecated. Instead of ln=1 use new_x=XPos.LMARGIN, new_y=YPos.NEXT.
+    pdf.cell(0, 8, "Department of Social Welfare", ln=1, align="C")
+
+tests/test_baseline.py::test_full_citizen_journey_english_name
+tests/test_baseline.py::test_duplicate_application_blocked
+  /home/claude/sewa-setu/app/app.py:363: DeprecationWarning: The parameter "ln" is deprecated. Instead of ln=1 use new_x=XPos.LMARGIN, new_y=YPos.NEXT.
+    pdf.cell(0, 8, "Old Age Pension Scheme - Acknowledgment", ln=1, align="C")
+
+tests/test_baseline.py: 20 warnings
+  /home/claude/sewa-setu/app/app.py:376: DeprecationWarning: The parameter "ln" is deprecated. Instead of ln=1 use new_x=XPos.LMARGIN, new_y=YPos.NEXT.
+    pdf.cell(0, 8, str(val), border=1, ln=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 977 warnings in 0.42s

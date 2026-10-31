@@ -26,20 +26,31 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 config = configparser.ConfigParser()
 config.read(os.path.join(BASE_DIR, "config", "app.ini"))
 
+
+def cfg(section, key):
+    """Config value, overridable by env SEWASETU_<SECTION>_<KEY> (12-factor).
+
+    Defaults stay exactly as in config/app.ini; env lets tests and the
+    production server inject values without editing committed files.
+    """
+    return os.environ.get("SEWASETU_%s_%s" % (section.upper(), key.upper()),
+                          config.get(section, key))
+
+
 app = Flask(__name__)
-app.secret_key = config.get("app", "secret_key")
+app.secret_key = cfg("app", "secret_key")
 app.config["PERMANENT_SESSION_LIFETIME"] = 300
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "sewasetu@123"
 
-SMS_GATEWAY_URL = config.get("app", "sms_gateway_url")
-OTP_VALIDITY_SECONDS = config.getint("app", "otp_validity_seconds")
-UPLOAD_DIR = config.get("app", "upload_dir")
-SCHEME_DEADLINE = datetime.strptime(config.get("pension", "scheme_deadline"),
+SMS_GATEWAY_URL = cfg("app", "sms_gateway_url")
+OTP_VALIDITY_SECONDS = int(cfg("app", "otp_validity_seconds"))
+UPLOAD_DIR = cfg("app", "upload_dir")
+SCHEME_DEADLINE = datetime.strptime(cfg("pension", "scheme_deadline"),
                                     "%Y-%m-%d %H:%M")
-MIN_AGE = config.getint("pension", "min_age")
-SLA_DAYS = config.getint("pension", "sla_days")
+MIN_AGE = int(cfg("pension", "min_age"))
+SLA_DAYS = int(cfg("pension", "sla_days"))
 
 BLOCKS = ["Sonari", "Rajapara", "Dhemaji Pathar", "Borgaon", "Namti", "Khelua"]
 
@@ -57,11 +68,11 @@ except Exception:
 
 def get_db():
     return psycopg2.connect(
-        host=config.get("database", "host"),
-        port=config.get("database", "port"),
-        dbname=config.get("database", "name"),
-        user=config.get("database", "user"),
-        password=config.get("database", "password"),
+        host=cfg("database", "host"),
+        port=cfg("database", "port"),
+        dbname=cfg("database", "name"),
+        user=cfg("database", "user"),
+        password=cfg("database", "password"),
     )
 
 
