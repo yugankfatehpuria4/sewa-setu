@@ -1,0 +1,5 @@
+xx                                                                       [100%]
+=========================== short test summary info ============================
+XFAIL tests/test_fix03_deemed_approval.py::test_job_runs_with_consolidated_config - F-03
+XFAIL tests/test_fix03_deemed_approval.py::test_job_is_idempotent - F-03
+2 xfailed in 0.07s
