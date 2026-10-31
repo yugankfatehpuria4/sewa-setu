@@ -19,22 +19,33 @@ import requests
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# F-03: config/settings.ini was consolidated into config/app.ini in March 2026
+# (CR-2026-031) but this job kept opening settings.ini, so it crashed every
+# night from 2026-03-15. Read the same file the web app reads (legacy file
+# still honoured if present) and fail loudly if neither exists.
 config = configparser.ConfigParser()
-CONFIG_PATH = os.path.join(BASE_DIR, "config", "settings.ini")
-with open(CONFIG_PATH) as fh:
-    config.read_file(fh)
+CONFIG_PATHS = [os.path.join(BASE_DIR, "config", "app.ini"),
+                os.path.join(BASE_DIR, "config", "settings.ini")]
+if not config.read(CONFIG_PATHS):
+    raise SystemExit("deemed approval: no config found in %s" % CONFIG_PATHS)
 
-SLA_DAYS = config.getint("pension", "sla_days")
-SMS_GATEWAY_URL = config.get("app", "sms_gateway_url")
+
+def cfg(section, key):
+    return os.environ.get("SEWASETU_%s_%s" % (section.upper(), key.upper()),
+                          config.get(section, key))
+
+
+SLA_DAYS = int(cfg("pension", "sla_days"))
+SMS_GATEWAY_URL = cfg("app", "sms_gateway_url")
 
 
 def main():
     conn = psycopg2.connect(
-        host=config.get("database", "host"),
-        port=config.get("database", "port"),
-        dbname=config.get("database", "name"),
-        user=config.get("database", "user"),
-        password=config.get("database", "password"),
+        host=cfg("database", "host"),
+        port=cfg("database", "port"),
+        dbname=cfg("database", "name"),
+        user=cfg("database", "user"),
+        password=cfg("database", "password"),
     )
     cur = conn.cursor()
     cutoff = datetime.now() - timedelta(days=SLA_DAYS)

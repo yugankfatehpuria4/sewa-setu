@@ -26,7 +26,6 @@ def _seed(mobile, days_old, status="PENDING"):
             ("T" + mobile, mobile, status, datetime.now() - timedelta(days=days_old)))
 
 
-@pytest.mark.xfail(strict=True, reason="F-03")
 def test_job_runs_with_consolidated_config(monkeypatch):
     assert not os.path.exists(os.path.join(ROOT, "app", "config", "settings.ini"))
     job = _load_job()
@@ -40,7 +39,6 @@ def test_job_runs_with_consolidated_config(monkeypatch):
     assert db_one("SELECT status FROM applications WHERE mobile='9600000003'")[0] == "REJECTED"
 
 
-@pytest.mark.xfail(strict=True, reason="F-03")
 def test_job_is_idempotent(monkeypatch):
     job = _load_job()
     sent = []
