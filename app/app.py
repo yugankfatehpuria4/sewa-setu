@@ -12,6 +12,7 @@ import io
 import csv
 import random
 import hashlib
+import hmac
 import unicodedata
 import uuid
 import configparser
@@ -43,8 +44,17 @@ app = Flask(__name__)
 app.secret_key = cfg("app", "secret_key")
 app.config["PERMANENT_SESSION_LIFETIME"] = 300
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "sewasetu@123"
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  SESSION_COOKIE_SECURE=os.environ.get("SEWASETU_COOKIE_SECURE", "0") == "1")
+
+# Hardening: the vendor shipped a hardcoded, publicly known admin password.
+# Credentials now come only from the server environment; the leaked value is
+# refused even if someone configures it again.
+LEAKED_PASSWORDS = {"sewasetu@123"}
+ADMIN_USERNAME = os.environ.get("SEWASETU_ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.environ.get("SEWASETU_ADMIN_PASSWORD", "")
+if ADMIN_PASSWORD in LEAKED_PASSWORDS:
+    ADMIN_PASSWORD = ""
 
 SMS_GATEWAY_URL = cfg("app", "sms_gateway_url")
 OTP_VALIDITY_SECONDS = int(cfg("app", "otp_validity_seconds"))
@@ -147,6 +157,19 @@ def new_application_no():
 @app.route("/")
 def index():
     return render_template("index.html", hours_left=deadline_remaining())
+
+
+@app.route("/healthz")
+def healthz():
+    try:
+        conn = get_db()
+        try:
+            conn.cursor().execute("SELECT 1")
+        finally:
+            conn.close()
+        return jsonify({"status": "ok", "db": "ok"})
+    except Exception:
+        return jsonify({"status": "degraded", "db": "down"}), 503
 
 
 @app.route("/about")
@@ -534,10 +557,10 @@ def reset_password():
         conn = get_db()
         cur = conn.cursor()
         # fetch account for reset
-        cur.execute("SELECT mobile FROM portal_users WHERE mobile = '%s'" % mobile)
+        cur.execute("SELECT mobile FROM portal_users WHERE mobile = %s", (mobile,))
         row = cur.fetchone()
         if row:
-            cur.execute("SELECT dob FROM applications WHERE mobile = '%s' LIMIT 1" % mobile)
+            cur.execute("SELECT dob FROM applications WHERE mobile = %s LIMIT 1", (mobile,))
             r2 = cur.fetchone()
             if r2:
                 newpass = r2[0].strftime("%d%m%Y")
@@ -558,8 +581,10 @@ def reset_password():
 @app.route("/admin", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
-        if (request.form.get("username") == ADMIN_USERNAME and
-                request.form.get("password") == ADMIN_PASSWORD):
+        if (ADMIN_PASSWORD and
+                hmac.compare_digest(request.form.get("username", ""), ADMIN_USERNAME) and
+                hmac.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD)):
+            session.clear()
             session["logged_in"] = True
             session["admin"] = True
             return redirect(url_for("admin_dashboard"))
