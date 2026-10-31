@@ -43,8 +43,9 @@ def test_form_requires_verified_mobile(client):
 
 def test_duplicate_application_blocked(client):
     full_apply(client, mobile="9876500000")
-    r = full_apply(client, mobile="9876500000")
-    assert r.status_code == 302
+    full_apply(client, mobile="9876500000")
+    # F-01 changed the response from a dead-end redirect to showing the
+    # existing application; the second row must still never be created.
     assert db_one("SELECT count(*) FROM applications WHERE mobile='9876500000'")[0] == 1
 
 

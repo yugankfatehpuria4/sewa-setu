@@ -305,12 +305,17 @@ def handle_submission():
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT count(*) FROM applications WHERE mobile = %s", (mobile,))
-    if cur.fetchone()[0] > 0:
+    cur.execute("SELECT id, application_no FROM applications WHERE mobile = %s "
+                "ORDER BY id LIMIT 1", (mobile,))
+    existing = cur.fetchone()
+    if existing:
         cur.close(); conn.close()
-        flash("An application already exists for this mobile number. "
-              "Duplicate applications are not permitted.")
-        return redirect(url_for("index"))
+        # F-01: citizens whose earlier submission errored after it was saved
+        # retry and must be shown their application, not a dead end.
+        flash("An application is already registered for this mobile number "
+              "(Application No. %s). You do not need to apply again." % existing[1])
+        return render_template("confirmation.html", app_no=existing[1],
+                               app_id=existing[0], already=True)
 
     app_no = new_application_no()
     cur.execute(
@@ -332,15 +337,27 @@ def handle_submission():
         cur.execute("INSERT INTO portal_users (mobile, password_hash) VALUES (%s,%s)",
                     (mobile, hash_password(portal_pass)))
     conn.commit()
-
-    app.logger.info("generating acknowledgment pdf application=%d" % new_id)
-    pdf_bytes = generate_acknowledgment(cur, new_id)
-    ack_dir = os.path.join(UPLOAD_DIR, "ack")
-    os.makedirs(ack_dir, exist_ok=True)
-    with open(os.path.join(ack_dir, "%d.pdf" % new_id), "wb") as out:
-        out.write(pdf_bytes)
-
+    # F-01: release the connection before any slow work. In production the
+    # connection was held through PDF generation, exhausting Postgres
+    # ("too many clients") and failing 40% of final submissions.
     cur.close(); conn.close()
+
+    # The application is saved. The acknowledgment is a convenience: if it
+    # cannot be generated now, /ack/<id>.pdf regenerates it on demand.
+    pconn = None
+    try:
+        app.logger.info("generating acknowledgment pdf application=%d" % new_id)
+        pconn = get_db()
+        pdf_bytes = generate_acknowledgment(pconn.cursor(), new_id)
+        ack_dir = os.path.join(UPLOAD_DIR, "ack")
+        os.makedirs(ack_dir, exist_ok=True)
+        with open(os.path.join(ack_dir, "%d.pdf" % new_id), "wb") as out:
+            out.write(pdf_bytes)
+    except Exception as e:
+        app.logger.error("acknowledgment pdf deferred application=%d: %s" % (new_id, e))
+    finally:
+        if pconn is not None:
+            pconn.close()
     session.pop("form_data", None)
     session.pop("doc_path", None)
     session.pop("verified_mobile", None)
@@ -362,11 +379,10 @@ def generate_acknowledgment(cur, app_id):
     pdf.cell(0, 8, "Department of Social Welfare", ln=1, align="C")
     pdf.cell(0, 8, "Old Age Pension Scheme - Acknowledgment", ln=1, align="C")
     pdf.ln(4)
-    # decorative border, as per approved letterhead design
-    for i in range(0, 2000):
-        x = 10 + (i % 190)
-        pdf.line(x, 282, x + 0.5, 282)
-        pdf.line(x, 12, x + 0.5, 12)
+    # decorative border, as per approved letterhead design. Two solid rules
+    # render identically to the old 4,000 half-millimetre segments (F-01).
+    pdf.line(10, 12, 200, 12)
+    pdf.line(10, 282, 200, 282)
     labels = ["Application No", "Applicant Name", "Mobile", "Date of Birth",
               "Village", "Block", "Bank Account", "IFSC", "Submitted At", "Status"]
     pdf.set_font("Helvetica", "", 10)
@@ -436,13 +452,14 @@ def ack_pdf(app_id):
     path = os.path.join(UPLOAD_DIR, "ack", "%d.pdf" % app_id)
     if not os.path.exists(path):
         conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM applications WHERE id = %s", (app_id,))
-        if not cur.fetchone():
-            cur.close(); conn.close()
-            abort(404)
-        data = generate_acknowledgment(cur, app_id)
-        cur.close(); conn.close()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM applications WHERE id = %s", (app_id,))
+            if not cur.fetchone():
+                abort(404)
+            data = generate_acknowledgment(cur, app_id)
+        finally:
+            conn.close()
         return send_file(io.BytesIO(data), mimetype="application/pdf")
     return send_file(path, mimetype="application/pdf")
 

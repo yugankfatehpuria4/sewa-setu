@@ -5,7 +5,6 @@ from fpdf import FPDF
 from conftest import appmod, db_one, full_apply
 
 
-@pytest.mark.xfail(strict=True, reason="F-01")
 def test_submission_succeeds_even_if_ack_pdf_fails(client, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("simulated: too many clients already")
@@ -16,7 +15,6 @@ def test_submission_succeeds_even_if_ack_pdf_fails(client, monkeypatch):
     assert db_one("SELECT count(*) FROM applications WHERE mobile='9811111111'")[0] == 1
 
 
-@pytest.mark.xfail(strict=True, reason="F-01")
 def test_ack_pdf_border_is_cheap(client, monkeypatch):
     full_apply(client, mobile="9822222222")
     app_id = db_one("SELECT id FROM applications WHERE mobile='9822222222'")[0]
@@ -36,7 +34,6 @@ def test_ack_pdf_border_is_cheap(client, monkeypatch):
     assert len(calls) <= 10, "ack PDF draws %d line segments" % len(calls)
 
 
-@pytest.mark.xfail(strict=True, reason="F-01")
 def test_retry_after_failed_submission_shows_existing_application(client, monkeypatch):
     """A citizen whose submission errored (row saved) and who retries must be
     shown their application number, not a dead-end 'duplicate' error."""
